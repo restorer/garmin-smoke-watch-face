@@ -1,0 +1,4 @@
+<animations>
+    <animation id="enter" filename="enter.mmm" />
+    <animation id="leave" filename="leave.mmm" />
+</animations>
