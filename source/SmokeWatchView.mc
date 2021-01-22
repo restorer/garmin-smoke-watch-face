@@ -157,11 +157,11 @@ class SmokeWatchView extends WatchUi.WatchFace {
         System.println(">>> SmokeWatchView.onShow: begin");
 
         if (enterLayer == null) {
-            enterLayer = setupAnimationLayer(null, Rez.Drawables.enter);
+            enterLayer = setupAnimationLayer(null, Rez.Drawables.Enter);
         }
 
         if (leaveLayer == null) {
-            leaveLayer = setupAnimationLayer(null, Rez.Drawables.leave);
+            leaveLayer = setupAnimationLayer(null, Rez.Drawables.Leave);
         }
 
         isViewShown = true;
@@ -568,13 +568,13 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
         if (animationState == :active) {
             animationState = :leaving;
-            enterLayer = setupAnimationLayer(enterLayer, Rez.Drawables.enter);
+            enterLayer = setupAnimationLayer(enterLayer, Rez.Drawables.Enter);
 
             leaveLayer.setVisible(true);
             leaveLayer.play({ :delegate => new SmokeWatchAnimationDelegate(self, false) });
         } else if (animationState != :entering && animationState != :leaving) {
             animationState = :entering;
-            leaveLayer = setupAnimationLayer(leaveLayer, Rez.Drawables.leave);
+            leaveLayer = setupAnimationLayer(leaveLayer, Rez.Drawables.Leave);
 
             enterLayer.setVisible(true);
             enterLayer.play({ :delegate => new SmokeWatchAnimationDelegate(self, true) });
@@ -608,7 +608,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
         if (isStateActive) {
             animationState = :active;
-            leaveLayer = setupAnimationLayer(leaveLayer, Rez.Drawables.leave);
+            leaveLayer = setupAnimationLayer(leaveLayer, Rez.Drawables.Leave);
 
             System.println(">>> SmokeWatchView.onAnimationComplete: end (isActive), isStateActive = "
                 + isStateActive
@@ -623,7 +623,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
         }
 
         animationState = :empty;
-        enterLayer = setupAnimationLayer(enterLayer, Rez.Drawables.enter);
+        enterLayer = setupAnimationLayer(enterLayer, Rez.Drawables.Enter);
 
         if (isViewShown && isViewActive) {
             startAnimation();
