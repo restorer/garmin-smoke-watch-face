@@ -22,8 +22,8 @@ class SmokeWatchAnimationDelegate extends WatchUi.AnimationDelegate {
     function onAnimationEvent(event, options) {
         System.println(">>> SmokeWatchAnimationDelegate.onAnimationEvent: begin, event = " + event + ", options = " + options);
 
-        if (event == WatchUi.ANIMATION_EVENT_COMPLETE) {
-            owner.onAnimationComplete(isStateActive);
+        if (event == WatchUi.ANIMATION_EVENT_COMPLETE || event == WatchUi.ANIMATION_EVENT_CANCELED) {
+            owner.onAnimationEnd(isStateActive, event == WatchUi.ANIMATION_EVENT_CANCELED);
         }
 
         System.println(">>> SmokeWatchAnimationDelegate.onAnimationEvent: end");
@@ -46,8 +46,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
     var screenHeight = 0;
     var screenCenterX = 0;
     var screenCenterY = 0;
-    var screenPaddingLeft = 0;
-    var screenPaddingRight = 0;
+    var screenPaddingHor = 0;
     var screenPaddingVert = 0;
     var timeFont = null;
     var infoFont = null;
@@ -116,8 +115,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
         screenHeight = settings.screenHeight;
         screenCenterX = screenWidth * 0.5;
         screenCenterY = screenHeight * 0.5;
-        screenPaddingLeft = screenWidth * 0.075;
-        screenPaddingRight = screenWidth * 0.05;
+        screenPaddingHor = screenWidth * 0.075;
         screenPaddingVert = screenHeight * 0.075;
 
         timeFont = WatchUi.loadResource(Rez.Fonts.RobotoLight);
@@ -266,7 +264,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
         var systemStats = System.getSystemStats();
 
         var timeInfo = System.getClockTime();
-        var dateInfo = Time.Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
+        var dateInfo = Time.Gregorian.info(Time.now(), Time.FORMAT_SHORT);
         var hours = timeInfo.hour;
 
         if (deviceSettings has :is24Hour && !deviceSettings.is24Hour) {
@@ -279,7 +277,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
         currentHours = hours.format("%02d");
         currentMinutes = timeInfo.min.format("%02d");
-        currentDate = Lang.format("$1$\n$2$ $3$", [dateInfo.day_of_week, dateInfo.month, dateInfo.day]);
+        currentDate = formatDayOfWeek(dateInfo.day_of_week) + "\n" + formatMonth(dateInfo.month) + " " + dateInfo.day.format("%d");
 
         currentPhoneConnected = (deviceSettings has :phoneConnected && deviceSettings.phoneConnected);
         currentNotificationsCount = (deviceSettings has :notificationCount ? deviceSettings.notificationCount : 0);
@@ -322,7 +320,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
         );
 
         faceDc.drawText(
-            screenWidth - screenPaddingRight,
+            screenWidth - screenPaddingHor,
             screenCenterY,
             infoFont,
             currentDate,
@@ -466,7 +464,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
         if (currentSteps != null) {
             faceDc.drawText(
-                screenPaddingLeft,
+                screenPaddingHor,
                 colY,
                 iconFont,
                 ICON_STEPS,
@@ -474,7 +472,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
             );
 
             faceDc.drawText(
-                screenPaddingLeft + iconSize + iconTextOffsetX,
+                screenPaddingHor + iconSize + iconTextOffsetX,
                 colY + iconTextOffsetY,
                 infoFont,
                 currentSteps.format("%d"),
@@ -486,7 +484,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
         if (currentCalories != null) {
             faceDc.drawText(
-                screenPaddingLeft,
+                screenPaddingHor,
                 colY,
                 iconFont,
                 ICON_CALORIES,
@@ -494,7 +492,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
             );
 
             faceDc.drawText(
-                screenPaddingLeft + iconSize + iconTextOffsetX,
+                screenPaddingHor + iconSize + iconTextOffsetX,
                 colY + iconTextOffsetY,
                 infoFont,
                 currentCalories.format("%d"),
@@ -506,7 +504,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
         if (currentFloors != null) {
             faceDc.drawText(
-                screenPaddingLeft,
+                screenPaddingHor,
                 colY,
                 iconFont,
                 ICON_FLOORS,
@@ -514,7 +512,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
             );
 
             faceDc.drawText(
-                screenPaddingLeft + iconSize + iconTextOffsetX,
+                screenPaddingHor + iconSize + iconTextOffsetX,
                 colY + iconTextOffsetY,
                 infoFont,
                 currentFloors.format("%d"),
@@ -526,7 +524,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
         if (currentActivity != null) {
             faceDc.drawText(
-                screenPaddingLeft,
+                screenPaddingHor,
                 colY,
                 iconFont,
                 ICON_ACTIVITY,
@@ -534,7 +532,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
             );
 
             faceDc.drawText(
-                screenPaddingLeft + iconSize + iconTextOffsetX,
+                screenPaddingHor + iconSize + iconTextOffsetX,
                 colY + iconTextOffsetY,
                 infoFont,
                 currentActivity.format("%d"),
@@ -546,7 +544,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
         if (currentHeartRate != null) {
             faceDc.drawText(
-                screenPaddingLeft,
+                screenPaddingHor,
                 colY,
                 iconFont,
                 ICON_HEART,
@@ -554,7 +552,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
             );
 
             faceDc.drawText(
-                screenPaddingLeft + iconSize + iconTextOffsetX,
+                screenPaddingHor + iconSize + iconTextOffsetX,
                 colY + iconTextOffsetY,
                 infoFont,
                 currentHeartRate.format("%d"),
@@ -585,9 +583,11 @@ class SmokeWatchView extends WatchUi.WatchFace {
         System.println(">>> SmokeWatchView.startAnimation: end, animationState = " + animationState);
     }
 
-    function onAnimationComplete(isStateActive) {
+    function onAnimationEnd(isStateActive, isCanceled) {
         System.println(">>> SmokeWatchView.onAnimationComplete: begin, isStateActive = "
             + isStateActive
+            + ", isCanceled = "
+            + isCanceled
             + ", ignoreAnimationCompleteCounter = "
             + ignoreAnimationCompleteCounter
             + ", animationState = "
@@ -596,6 +596,8 @@ class SmokeWatchView extends WatchUi.WatchFace {
         if (ignoreAnimationCompleteCounter > 0 || (animationState != :entering && animationState != :leaving)) {
             System.println(">>> SmokeWatchView.onAnimationComplete: end (ignoreAnimationCompleteCounter), isStateActive = "
                 + isStateActive
+                + ", isCanceled = "
+                + isCanceled
                 + ", ignoreAnimationCompleteCounter = "
                 + ignoreAnimationCompleteCounter
                 + ", animationState = "
@@ -610,6 +612,8 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
             System.println(">>> SmokeWatchView.onAnimationComplete: end (isActive), isStateActive = "
                 + isStateActive
+                + ", isCanceled = "
+                + isCanceled
                 + ", ignoreAnimationCompleteCounter = "
                 + ignoreAnimationCompleteCounter
                 + ", animationState = "
@@ -627,6 +631,8 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
         System.println(">>> SmokeWatchView.onAnimationComplete: end, isStateActive = "
             + isStateActive
+            + ", isCanceled = "
+            + isCanceled
             + ", ignoreAnimationCompleteCounter = "
             + ignoreAnimationCompleteCounter
             + ", animationState = "
@@ -653,5 +659,40 @@ class SmokeWatchView extends WatchUi.WatchFace {
         layer.stop();
         removeLayer(layer);
         --ignoreAnimationCompleteCounter;
+    }
+
+    function formatDayOfWeek(dayOfWeek) {
+        // English-only
+
+        switch (dayOfWeek) {
+            case Time.Gregorian.DAY_SUNDAY: return "Sun";
+            case Time.Gregorian.DAY_MONDAY: return "Mon";
+            case Time.Gregorian.DAY_TUESDAY: return "Tue";
+            case Time.Gregorian.DAY_WEDNESDAY: return "Wed";
+            case Time.Gregorian.DAY_THURSDAY: return "Thu";
+            case Time.Gregorian.DAY_FRIDAY: return "Fri";
+            case Time.Gregorian.DAY_SATURDAY: return "Sat";
+            default: return dayOfWeek.format("%d");
+        }
+    }
+
+    function formatMonth(month) {
+        // English-only
+
+        switch (month) {
+            case Time.Gregorian.MONTH_JANUARY: return "Jan";
+            case Time.Gregorian.MONTH_FEBRUARY: return "Feb";
+            case Time.Gregorian.MONTH_MARCH: return "Mar";
+            case Time.Gregorian.MONTH_APRIL: return "Apr";
+            case Time.Gregorian.MONTH_MAY: return "May";
+            case Time.Gregorian.MONTH_JUNE: return "Jun";
+            case Time.Gregorian.MONTH_JULY: return "Jul";
+            case Time.Gregorian.MONTH_AUGUST: return "Aug";
+            case Time.Gregorian.MONTH_SEPTEMBER: return "Sep";
+            case Time.Gregorian.MONTH_OCTOBER: return "Oct";
+            case Time.Gregorian.MONTH_NOVEMBER: return "Nov";
+            case Time.Gregorian.MONTH_DECEMBER: return "Dec";
+            default: return month.format("%d");
+        }
     }
 }
