@@ -130,7 +130,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
             batteryProgressOffsetX = 5;
             batteryProgressOffsetY = 4;
             batteryProgressWidth = 6;
-            batteryProgressHeight = 10;
+            batteryProgressHeight = 11;
             iconSpacingHor = 4;
         } else {
             batteryProgressOffsetX = 5;
