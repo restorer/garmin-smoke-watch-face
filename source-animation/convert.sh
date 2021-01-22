@@ -9,11 +9,11 @@ do_convert () {
     DEVICE="$3"
     QUALITY="$4"
 
-    find "$TYPE" -name 'Blender*.png' -print \
+    find "$TYPE" -name 'render_*.png' -print \
         | xargs -n 1 basename \
         | xargs -n 1 -I '{}' convert "${TYPE}/{}" -scale "$SCALE" -ordered-dither o3x3,4 -depth 2 "${TYPE}/${SCALE}_{}"
 
-    convert -delay 6 -loop 0 "${TYPE}/${SCALE}_Blender*.png" "${TYPE}/${TYPE}_${SCALE}.gif"
+    convert -delay 6 -loop 0 "${TYPE}/${SCALE}_render_*.png" "${TYPE}/${TYPE}_${SCALE}.gif"
 
     [ -e "${TYPE}/${TYPE}_${SCALE}_8_RGB222.mm" ] && rm "${TYPE}/${TYPE}_${SCALE}_8_RGB222.mm"
     monkeym -c 2 -d "$DEVICE" -f 10 -o "$TYPE" -p 3 -q "$QUALITY" -s 3 -v "${TYPE}/${TYPE}_${SCALE}.gif" -w

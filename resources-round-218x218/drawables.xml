@@ -1,0 +1,11 @@
+<drawables>
+    <bitmap id="Activity" filename="drawables/activity_14.png" />
+    <bitmap id="Battery" filename="drawables/battery_14.png" />
+    <bitmap id="BatteryCharging" filename="drawables/battery_charging_14.png" />
+    <bitmap id="Bluetooth" filename="drawables/bluetooth_14.png" />
+    <bitmap id="Calories" filename="drawables/calories_14.png" />
+    <bitmap id="Floors" filename="drawables/floors_14.png" />
+    <bitmap id="Heart" filename="drawables/heart_14.png" />
+    <bitmap id="Notifications" filename="drawables/notifications_14.png" />
+    <bitmap id="Steps" filename="drawables/steps_14.png" />
+</drawables>
