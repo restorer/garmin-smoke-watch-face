@@ -55,7 +55,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
     var faceLayer = null;
 
     var isViewShown = false;
-    var isViewActive = false;
+    var isJustShown = false;
 
     var currentSmokeIndex = 0;
     var currentHours = "";
@@ -175,26 +175,9 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
     function onShow() {
         isViewShown = true;
-        isViewActive = true;
+        isJustShown = (currentSmokeIndex < SMOKE_ACTIVE_INDEX);
         startAnimation();
         return true;
-    }
-
-    function onHide() {
-        isViewShown = false;
-        isViewActive = false;
-        stopAnimation();
-        View.onHide();
-    }
-
-    function onExitSleep() {
-        isViewActive = true;
-        startAnimation();
-    }
-
-    function onEnterSleep() {
-        isViewActive = false;
-        stopAnimation();
     }
 
     function onUpdate(dc) {
@@ -202,6 +185,26 @@ class SmokeWatchView extends WatchUi.WatchFace {
         renderBack();
         renderFace();
         return true;
+    }
+
+    function onHide() {
+        isViewShown = false;
+        stopAnimation();
+        View.onHide();
+    }
+
+    // Power mode
+
+    function onExitSleep() {
+        if (isViewShown) {
+            startAnimation();
+        }
+    }
+
+    function onEnterSleep() {
+        if (isViewShown) {
+            stopAnimation();
+        }
     }
 
     // Values
@@ -249,7 +252,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
             : null;
     }
 
-    // Back
+    // Background
 
     function startAnimation() {
         animationTimer.stop();
@@ -265,7 +268,11 @@ class SmokeWatchView extends WatchUi.WatchFace {
         currentSmokeIndex = (currentSmokeIndex + 1) % smokeBitmaps.size();
 
         if (currentSmokeIndex == SMOKE_ACTIVE_INDEX) {
-            animationTimer.stop();
+            if (isJustShown) {
+                isJustShown = false;
+            } else {
+                animationTimer.stop();
+            }
         }
 
         requestUpdate();
