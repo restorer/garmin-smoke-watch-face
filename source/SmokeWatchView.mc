@@ -22,8 +22,8 @@ class SmokeWatchView extends WatchUi.WatchFace {
     const SMOKE_ACTIVE_INDEX = 4;
 
     var animationTimer = null;
-
     var smokeBitmaps = [];
+
     var timeFont = null;
     var infoFont = null;
     var iconFont = null;
@@ -90,6 +90,19 @@ class SmokeWatchView extends WatchUi.WatchFace {
     function initialize() {
         WatchFace.initialize();
         animationTimer = new Timer.Timer();
+
+        smokeBitmaps = [
+            Rez.Drawables.Smoke01,
+            Rez.Drawables.Smoke02,
+            Rez.Drawables.Smoke03,
+            Rez.Drawables.Smoke04,
+            Rez.Drawables.Smoke05,
+            Rez.Drawables.Smoke06,
+            Rez.Drawables.Smoke07,
+            Rez.Drawables.Smoke08,
+            Rez.Drawables.Smoke09,
+            null
+        ];
     }
 
     function onLayout(dc) {
@@ -97,19 +110,6 @@ class SmokeWatchView extends WatchUi.WatchFace {
         dc.clear();
 
         // Resources
-
-        smokeBitmaps = [
-            WatchUi.loadResource(Rez.Drawables.Smoke01),
-            WatchUi.loadResource(Rez.Drawables.Smoke02),
-            WatchUi.loadResource(Rez.Drawables.Smoke03),
-            WatchUi.loadResource(Rez.Drawables.Smoke04),
-            WatchUi.loadResource(Rez.Drawables.Smoke05),
-            WatchUi.loadResource(Rez.Drawables.Smoke06),
-            WatchUi.loadResource(Rez.Drawables.Smoke07),
-            WatchUi.loadResource(Rez.Drawables.Smoke08),
-            WatchUi.loadResource(Rez.Drawables.Smoke09),
-            null
-        ];
 
         timeFont = WatchUi.loadResource(Rez.Fonts.RobotoLight);
         infoFont = Graphics.FONT_XTINY;
@@ -288,7 +288,11 @@ class SmokeWatchView extends WatchUi.WatchFace {
         if (bitmap == null) {
             backDc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
             backDc.clear();
+        } else if (bitmap instanceof WatchUi.BitmapResource) {
+            backDc.drawBitmap(0, 0, bitmap);
         } else {
+            bitmap = WatchUi.loadResource(bitmap);
+            smokeBitmaps[currentSmokeIndex] = bitmap;
             backDc.drawBitmap(0, 0, bitmap);
         }
     }
