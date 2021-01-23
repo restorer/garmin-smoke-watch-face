@@ -15,7 +15,7 @@ class SmokeApp extends Application.AppBase {
         return [new SmokeWatchView()];
     }
 
-    // function getSettingsView() {
-    //     return [new SmokeSettingsView(), new SmokeSettingsDelegate()];
-    // }
+    function getSettingsView() {
+        return [new SmokeSettingsView(), new SmokeSettingsDelegate()];
+    }
 }

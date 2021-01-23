@@ -5,30 +5,7 @@ using Toybox.Lang;
 using Toybox.Graphics;
 using Toybox.ActivityMonitor;
 using Toybox.Time;
-
-class SmokeWatchAnimationDelegate extends WatchUi.AnimationDelegate {
-    var owner = null;
-    var isStateActive = false;
-
-    function initialize(owner, isStateActive) {
-        System.println(">>> SmokeWatchAnimationDelegate.initialize: begin, isStateActive = " + isStateActive);
-        self.owner = owner;
-        self.isStateActive = isStateActive;
-
-        WatchUi.AnimationDelegate.initialize();
-        System.println(">>> SmokeWatchAnimationDelegate.initialize: end");
-    }
-
-    function onAnimationEvent(event, options) {
-        System.println(">>> SmokeWatchAnimationDelegate.onAnimationEvent: begin, event = " + event + ", options = " + options);
-
-        if (event == WatchUi.ANIMATION_EVENT_COMPLETE || event == WatchUi.ANIMATION_EVENT_CANCELED) {
-            owner.onAnimationEnd(isStateActive, event == WatchUi.ANIMATION_EVENT_CANCELED);
-        }
-
-        System.println(">>> SmokeWatchAnimationDelegate.onAnimationEvent: end");
-    }
-}
+using Toybox.Timer;
 
 class SmokeWatchView extends WatchUi.WatchFace {
     const ICON_BATTERY = "0";
@@ -42,34 +19,45 @@ class SmokeWatchView extends WatchUi.WatchFace {
     const ICON_ACTIVITY = "8";
     const ICON_DND = "9";
 
+    const SMOKE_ACTIVE_INDEX = 4;
+
+    var animationTimer = null;
+
+    var smokeBitmaps = [];
+    var timeFont = null;
+    var infoFont = null;
+    var iconFont = null;
+
     var screenWidth = 0;
     var screenHeight = 0;
     var screenCenterX = 0;
     var screenCenterY = 0;
-    var screenPaddingHor = 0;
-    var screenPaddingVert = 0;
-    var timeFont = null;
-    var infoFont = null;
-    var iconFont = null;
-    var infoLineHeight = 0;
+
     var iconSize = 0;
-    var bottomInfoY = 0;
-    var batteryProgressOffsetX = 0;
-    var batteryProgressOffsetY = 0;
-    var batteryProgressWidth = 0;
-    var batteryProgressHeight = 0;
-    var iconSpacingHor = 0;
-    var iconTextOffsetX = 2;
-    var iconTextOffsetY = -1;
-    var enterLayer = null;
-    var leaveLayer = null;
+    var infoHeight = 0;
+    var captionOffsetX = 0;
+    var captionOffsetY = 0;
+
+    var hoursMidY = 0;
+    var minutesMidY = 0;
+    var dateEndX = 0;
+    var topBlockY = 0;
+    var leftBlockX = 0;
+    var bottomBlockY = 0;
+
+    var iconSpacing = 0;
+    var batteryWidth = 0;
+    var batteryHeight = 0;
+    var batteryOffsetX = 0;
+    var batteryOffsetY = 0;
+
+    var backLayer = null;
     var faceLayer = null;
 
     var isViewShown = false;
     var isViewActive = false;
-    var animationState = :empty;
-    var ignoreAnimationCompleteCounter = 0;
 
+    var currentSmokeIndex = 0;
     var currentHours = "";
     var currentMinutes = "";
     var currentDate = "";
@@ -84,6 +72,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
     var currentActivity = null;
     var currentHeartRate = null;
 
+    var lastSmokeIndex = -1;
     var lastHours = "";
     var lastMinutes = "";
     var lastDate = "";
@@ -99,46 +88,75 @@ class SmokeWatchView extends WatchUi.WatchFace {
     var lastHeartRate = null;
 
     function initialize() {
-        System.println(">>> SmokeWatchView.initialize: begin");
         WatchFace.initialize();
-        System.println(">>> SmokeWatchView.initialize: end");
+        animationTimer = new Timer.Timer();
     }
 
     function onLayout(dc) {
-        System.println(">>> SmokeWatchView.onLayout: begin");
-
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
+
+        // Resources
+
+        smokeBitmaps = [
+            WatchUi.loadResource(Rez.Drawables.Smoke01),
+            WatchUi.loadResource(Rez.Drawables.Smoke02),
+            WatchUi.loadResource(Rez.Drawables.Smoke03),
+            WatchUi.loadResource(Rez.Drawables.Smoke04),
+            WatchUi.loadResource(Rez.Drawables.Smoke05),
+            WatchUi.loadResource(Rez.Drawables.Smoke06),
+            WatchUi.loadResource(Rez.Drawables.Smoke07),
+            WatchUi.loadResource(Rez.Drawables.Smoke08),
+            WatchUi.loadResource(Rez.Drawables.Smoke09),
+            null
+        ];
+
+        timeFont = WatchUi.loadResource(Rez.Fonts.RobotoLight);
+        infoFont = Graphics.FONT_XTINY;
+        iconFont = WatchUi.loadResource(Rez.Fonts.Icons);
+
+        // Compute
 
         var settings = System.getDeviceSettings();
         screenWidth = settings.screenWidth;
         screenHeight = settings.screenHeight;
-        screenCenterX = screenWidth * 0.5;
-        screenCenterY = screenHeight * 0.5;
-        screenPaddingHor = screenWidth * 0.075;
-        screenPaddingVert = screenHeight * 0.075;
+        screenCenterX = (screenWidth * 0.5).toNumber();
+        screenCenterY = (screenHeight * 0.5).toNumber();
 
-        timeFont = WatchUi.loadResource(Rez.Fonts.RobotoLight);
-        infoFont = WatchUi.loadResource(Rez.Fonts.Roboto);
-        iconFont = WatchUi.loadResource(Rez.Fonts.Icons);
-
-        infoLineHeight = Graphics.getFontHeight(infoFont);
         iconSize = Graphics.getFontHeight(iconFont);
-        bottomInfoY = screenHeight - screenPaddingVert - iconSize;
+        infoHeight = Graphics.getFontHeight(infoFont);
+        captionOffsetX = iconSize + 2;
+        captionOffsetY = ((iconSize - infoHeight) * 0.5).toNumber();
+
+        hoursMidY = (screenHeight * 0.35).toNumber();
+        minutesMidY =  (screenHeight * 0.65).toNumber();
+        dateEndX = screenWidth - (screenWidth * (iconSize >= 16 ? 0.075 : 0.05)).toNumber();
+        topBlockY = (screenHeight * 0.075).toNumber();
+        leftBlockX = (screenWidth * 0.075).toNumber();
+        bottomBlockY = screenHeight - (screenHeight * 0.075).toNumber() - iconSize;
 
         if (iconSize >= 16) {
-            batteryProgressOffsetX = 5;
-            batteryProgressOffsetY = 4;
-            batteryProgressWidth = 6;
-            batteryProgressHeight = 11;
-            iconSpacingHor = 4;
+            iconSpacing = 4;
+            batteryWidth = 6;
+            batteryHeight = 11;
+            batteryOffsetX = 5;
+            batteryOffsetY = 4;
         } else {
-            batteryProgressOffsetX = 5;
-            batteryProgressOffsetY = 5;
-            batteryProgressWidth = 5;
-            batteryProgressHeight = 10;
-            iconSpacingHor = 2;
+            iconSpacing = 2;
+            batteryWidth = 5;
+            batteryHeight = 10;
+            batteryOffsetX = 5;
+            batteryOffsetY = 5;
         }
+
+        // Layers
+
+        backLayer = new WatchUi.Layer({
+            :locX => 0,
+            :locY => 0,
+            :width => screenWidth,
+            :height => screenHeight
+        });
 
         faceLayer = new WatchUi.Layer({
             :locX => 0,
@@ -147,124 +165,53 @@ class SmokeWatchView extends WatchUi.WatchFace {
             :height => screenHeight
         });
 
+        addLayer(backLayer);
         addLayer(faceLayer);
 
-        System.println(">>> SmokeWatchView.onLayout: end");
         return true;
     }
 
+    // Lifecycle
+
     function onShow() {
-        System.println(">>> SmokeWatchView.onShow: begin");
-
-        if (enterLayer == null) {
-            enterLayer = setupAnimationLayer(null, Rez.Drawables.Enter);
-        }
-
-        if (leaveLayer == null) {
-            leaveLayer = setupAnimationLayer(null, Rez.Drawables.Leave);
-        }
-
         isViewShown = true;
         isViewActive = true;
         startAnimation();
-
-        System.println(">>> SmokeWatchView.onShow: end");
         return true;
     }
 
     function onHide() {
-        System.println(">>> SmokeWatchView.onHide: begin");
-
         isViewShown = false;
         isViewActive = false;
-        animationState = :empty;
-
-        if (enterLayer != null) {
-            destroyAnimationLayer(enterLayer);
-            enterLayer = null;
-        }
-
-        if (leaveLayer != null) {
-            destroyAnimationLayer(leaveLayer);
-            leaveLayer = null;
-        }
-
+        stopAnimation();
         View.onHide();
-        System.println(">>> SmokeWatchView.onHide: end");
     }
 
     function onExitSleep() {
-        System.println(">>> SmokeWatchView.onExitSleep: begin");
         isViewActive = true;
         startAnimation();
-        System.println(">>> SmokeWatchView.onExitSleep: end");
     }
 
     function onEnterSleep() {
         isViewActive = false;
+        stopAnimation();
     }
 
     function onUpdate(dc) {
-        if (faceLayer == null) {
-            return false;
-        }
-
-        var faceDc = faceLayer.getDc();
-
-        if (faceDc == null) {
-            return false;
-        }
-
-        computeValues();
-
-        if (currentHours == lastHours
-            && currentMinutes == lastMinutes
-            && currentDate == lastDate
-            && currentPhoneConnected == lastPhoneConnected
-            && currentNotificationsCount == lastNotificationsCount
-            && currentDnd == lastDnd
-            && currentBatteryLevel == lastBatteryLevel
-            && currentBatteryCharging == lastBatteryCharging
-            && currentSteps == lastSteps
-            && currentCalories == lastCalories
-            && currentFloors == lastFloors
-            && currentActivity == lastActivity
-            && currentHeartRate == lastHeartRate
-        ) {
-            return true;
-        }
-
-        lastHours = currentHours;
-        lastMinutes = currentMinutes;
-        lastDate = currentDate;
-        lastPhoneConnected = currentPhoneConnected;
-        lastNotificationsCount = currentNotificationsCount;
-        lastDnd = currentDnd;
-        lastBatteryLevel = currentBatteryLevel;
-        lastBatteryCharging = currentBatteryCharging;
-        lastSteps = currentSteps;
-        lastCalories = currentCalories;
-        lastFloors = currentFloors;
-        lastActivity = currentActivity;
-        lastHeartRate = currentHeartRate;
-
-        faceDc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        faceDc.clear();
-
-        drawTimeAndDate(faceDc);
-        drawConnectionAndNotifications(faceDc);
-        drawDndAndBattery(faceDc);
-        drawStats(faceDc);
-
+        updateValues();
+        renderBack();
+        renderFace();
         return true;
     }
 
-    function computeValues() {
+    // Values
+
+    function updateValues() {
         var deviceSettings = System.getDeviceSettings();
         var systemStats = System.getSystemStats();
 
         var timeInfo = System.getClockTime();
-        var dateInfo = Time.Gregorian.info(Time.now(), Time.FORMAT_SHORT);
+        var dateInfo = Time.Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
         var hours = timeInfo.hour;
 
         if (deviceSettings has :is24Hour && !deviceSettings.is24Hour) {
@@ -277,7 +224,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
         currentHours = hours.format("%02d");
         currentMinutes = timeInfo.min.format("%02d");
-        currentDate = formatDayOfWeek(dateInfo.day_of_week) + "\n" + formatMonth(dateInfo.month) + " " + dateInfo.day.format("%d");
+        currentDate = dateInfo.day_of_week + "\n" + dateInfo.month + " " + dateInfo.day.format("%d");
 
         currentPhoneConnected = (deviceSettings has :phoneConnected && deviceSettings.phoneConnected);
         currentNotificationsCount = (deviceSettings has :notificationCount ? deviceSettings.notificationCount : 0);
@@ -302,25 +249,122 @@ class SmokeWatchView extends WatchUi.WatchFace {
             : null;
     }
 
-    function drawTimeAndDate(faceDc) {
-        faceDc.drawText(
+    // Back
+
+    function startAnimation() {
+        animationTimer.stop();
+        animationTimer.start(method(:renderAnimation), 100, true);
+    }
+
+    function stopAnimation() {
+        animationTimer.stop();
+        currentSmokeIndex = SMOKE_ACTIVE_INDEX;
+    }
+
+    function renderAnimation() {
+        currentSmokeIndex = (currentSmokeIndex + 1) % smokeBitmaps.size();
+
+        if (currentSmokeIndex == SMOKE_ACTIVE_INDEX) {
+            animationTimer.stop();
+        }
+
+        requestUpdate();
+    }
+
+    function renderBack() {
+        if (backLayer == null) {
+            return;
+        }
+
+        var backDc = backLayer.getDc();
+
+        if (backDc == null || currentSmokeIndex == lastSmokeIndex) {
+            return;
+        }
+
+        lastSmokeIndex = currentSmokeIndex;
+        var bitmap = smokeBitmaps[currentSmokeIndex];
+
+        if (bitmap == null) {
+            backDc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+            backDc.clear();
+        } else {
+            backDc.drawBitmap(0, 0, bitmap);
+        }
+    }
+
+    // Face
+
+    function renderFace() {
+        if (faceLayer == null) {
+            return;
+        }
+
+        var faceDc = faceLayer.getDc();
+
+        if (faceDc == null) {
+            return;
+        }
+
+        if (currentHours == lastHours
+            && currentMinutes == lastMinutes
+            && currentDate == lastDate
+            && currentPhoneConnected == lastPhoneConnected
+            && currentNotificationsCount == lastNotificationsCount
+            && currentDnd == lastDnd
+            && currentBatteryLevel == lastBatteryLevel
+            && currentBatteryCharging == lastBatteryCharging
+            && currentSteps == lastSteps
+            && currentCalories == lastCalories
+            && currentFloors == lastFloors
+            && currentActivity == lastActivity
+            && currentHeartRate == lastHeartRate
+        ) {
+            return;
+        }
+
+        lastHours = currentHours;
+        lastMinutes = currentMinutes;
+        lastDate = currentDate;
+        lastPhoneConnected = currentPhoneConnected;
+        lastNotificationsCount = currentNotificationsCount;
+        lastDnd = currentDnd;
+        lastBatteryLevel = currentBatteryLevel;
+        lastBatteryCharging = currentBatteryCharging;
+        lastSteps = currentSteps;
+        lastCalories = currentCalories;
+        lastFloors = currentFloors;
+        lastActivity = currentActivity;
+        lastHeartRate = currentHeartRate;
+
+        faceDc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        faceDc.clear();
+
+        drawTimeAndDate(faceDc);
+        drawTopBlock(faceDc);
+        drawBottomBlock(faceDc);
+        drawLeftBlock(faceDc);
+    }
+
+    function drawTimeAndDate(dc) {
+        dc.drawText(
             screenCenterX,
-            screenHeight * 0.35,
+            hoursMidY,
             timeFont,
             currentHours,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER
         );
 
-        faceDc.drawText(
+        dc.drawText(
             screenCenterX,
-            screenHeight * 0.65,
+            minutesMidY,
             timeFont,
             currentMinutes,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER
         );
 
-        faceDc.drawText(
-            screenWidth - screenPaddingHor,
+        dc.drawText(
+            dateEndX,
             screenCenterY,
             infoFont,
             currentDate,
@@ -328,44 +372,35 @@ class SmokeWatchView extends WatchUi.WatchFace {
         );
     }
 
-    function drawConnectionAndNotifications(faceDc) {
+    function drawTopBlock(dc) {
         var notificationsCountText = currentNotificationsCount.format("%d");
-        var rowWidth = 0;
+        var width = 0;
 
         if (currentPhoneConnected) {
-            rowWidth += iconSize;
+            width += iconSize;
+        }
+
+        if (currentPhoneConnected && currentNotificationsCount > 0) {
+            width += iconSpacing;
         }
 
         if (currentNotificationsCount > 0) {
-            rowWidth += iconSize + faceDc.getTextWidthInPixels(notificationsCountText, infoFont);
+            width += captionOffsetX + dc.getTextWidthInPixels(notificationsCountText, infoFont);
         }
 
-        var rowX = screenCenterX - rowWidth * 0.5;
+        var x = (screenCenterX - width * 0.5).toNumber();
 
         if (currentPhoneConnected) {
-            faceDc.drawText(
-                rowX,
-                screenPaddingVert,
-                iconFont,
-                ICON_PHONE_CONNECTED,
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            rowX += iconSize + iconSpacingHor;
+            dc.drawText(x, topBlockY, iconFont, ICON_PHONE_CONNECTED, Graphics.TEXT_JUSTIFY_LEFT);
+            x += iconSize + iconSpacing;
         }
 
         if (currentNotificationsCount > 0) {
-            faceDc.drawText(
-                rowX,
-                screenPaddingVert,
-                iconFont,
-                ICON_NOTIFICATIONS,
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
+            dc.drawText(x, topBlockY, iconFont, ICON_NOTIFICATIONS, Graphics.TEXT_JUSTIFY_LEFT);
 
-            faceDc.drawText(
-                rowX + iconSize + iconTextOffsetX,
-                screenPaddingVert + iconTextOffsetY,
+            dc.drawText(
+                x + captionOffsetX,
+                topBlockY + captionOffsetY - 0.5,
                 infoFont,
                 notificationsCountText,
                 Graphics.TEXT_JUSTIFY_LEFT
@@ -373,63 +408,47 @@ class SmokeWatchView extends WatchUi.WatchFace {
         }
     }
 
-    function drawDndAndBattery(faceDc) {
+    function drawBottomBlock(dc) {
         var batteryText = (currentBatteryLevel != null ? currentBatteryLevel.format("%d") + "%" : null);
-        var rowWidth = 0;
+        var width = 0;
 
         if (currentDnd) {
-            rowWidth += iconSize;
+            width += iconSize;
+        }
+
+        if (currentDnd && batteryText != null) {
+            width += iconSpacing;
         }
 
         if (batteryText != null) {
-            rowWidth += iconSize + faceDc.getTextWidthInPixels(batteryText, infoFont);
+            width += captionOffsetX + dc.getTextWidthInPixels(batteryText, infoFont);
         }
 
-        var rowX = screenCenterX - rowWidth * 0.5;
+        var x = (screenCenterX - width * 0.5).toNumber();
 
         if (currentDnd) {
-            faceDc.drawText(
-                rowX,
-                bottomInfoY,
-                iconFont,
-                ICON_DND,
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            rowX += iconSize + iconSpacingHor;
+            dc.drawText(x, bottomBlockY, iconFont, ICON_DND, Graphics.TEXT_JUSTIFY_LEFT);
+            x += iconSize + iconSpacing;
         }
 
         if (batteryText != null) {
             if (currentBatteryCharging) {
-                faceDc.drawText(
-                    rowX,
-                    bottomInfoY,
-                    iconFont,
-                    ICON_BATTERY_CHARGING,
-                    Graphics.TEXT_JUSTIFY_LEFT
-                );
+                dc.drawText(x, bottomBlockY, iconFont, ICON_BATTERY_CHARGING, Graphics.TEXT_JUSTIFY_LEFT);
             } else {
-                faceDc.drawText(
-                    rowX,
-                    bottomInfoY,
-                    iconFont,
-                    ICON_BATTERY,
-                    Graphics.TEXT_JUSTIFY_LEFT
-                );
+                dc.drawText(x, bottomBlockY, iconFont, ICON_BATTERY, Graphics.TEXT_JUSTIFY_LEFT);
+                var batHeight = currentBatteryLevel * 0.01 * batteryHeight;
 
-                var batteryLevelHeight = currentBatteryLevel * 0.01 * batteryProgressHeight;
-
-                faceDc.fillRectangle(
-                    rowX + batteryProgressOffsetX,
-                    bottomInfoY + batteryProgressOffsetY + batteryProgressHeight - batteryLevelHeight,
-                    batteryProgressWidth,
-                    batteryLevelHeight
+                dc.fillRectangle(
+                    x + batteryOffsetX,
+                    bottomBlockY + batteryOffsetY + batteryHeight - batHeight,
+                    batteryWidth,
+                    batHeight
                 );
             }
 
-            faceDc.drawText(
-                rowX + iconSize + iconTextOffsetX,
-                bottomInfoY + iconTextOffsetY,
+            dc.drawText(
+                x + captionOffsetX,
+                bottomBlockY + captionOffsetY,
                 infoFont,
                 batteryText,
                 Graphics.TEXT_JUSTIFY_LEFT
@@ -437,262 +456,58 @@ class SmokeWatchView extends WatchUi.WatchFace {
         }
     }
 
-    function drawStats(faceDc) {
-        var colHeight = 0;
+    function drawLeftBlock(dc) {
+        var height = 0;
 
         if (currentSteps != null) {
-            colHeight += infoLineHeight;
+            height += infoHeight;
         }
 
         if (currentCalories != null) {
-            colHeight += infoLineHeight;
+            height += infoHeight;
         }
 
         if (currentFloors != null) {
-            colHeight += infoLineHeight;
+            height += infoHeight;
         }
 
         if (currentActivity != null) {
-            colHeight += infoLineHeight;
+            height += infoHeight;
         }
 
         if (currentHeartRate != null) {
-            colHeight += infoLineHeight;
+            height += infoHeight;
         }
 
-        var colY = screenCenterY - colHeight * 0.5;
+        var y = (screenCenterY - height * 0.5).toNumber();
 
         if (currentSteps != null) {
-            faceDc.drawText(
-                screenPaddingHor,
-                colY,
-                iconFont,
-                ICON_STEPS,
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            faceDc.drawText(
-                screenPaddingHor + iconSize + iconTextOffsetX,
-                colY + iconTextOffsetY,
-                infoFont,
-                currentSteps.format("%d"),
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            colY += infoLineHeight;
+            drawStatsItem(dc, y, ICON_STEPS, currentSteps.format("%d"));
+            y += infoHeight;
         }
 
         if (currentCalories != null) {
-            faceDc.drawText(
-                screenPaddingHor,
-                colY,
-                iconFont,
-                ICON_CALORIES,
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            faceDc.drawText(
-                screenPaddingHor + iconSize + iconTextOffsetX,
-                colY + iconTextOffsetY,
-                infoFont,
-                currentCalories.format("%d"),
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            colY += infoLineHeight;
+            drawStatsItem(dc, y, ICON_CALORIES, currentCalories.format("%d"));
+            y += infoHeight;
         }
 
         if (currentFloors != null) {
-            faceDc.drawText(
-                screenPaddingHor,
-                colY,
-                iconFont,
-                ICON_FLOORS,
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            faceDc.drawText(
-                screenPaddingHor + iconSize + iconTextOffsetX,
-                colY + iconTextOffsetY,
-                infoFont,
-                currentFloors.format("%d"),
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            colY += infoLineHeight;
+            drawStatsItem(dc, y, ICON_FLOORS, currentFloors.format("%d"));
+            y += infoHeight;
         }
 
         if (currentActivity != null) {
-            faceDc.drawText(
-                screenPaddingHor,
-                colY,
-                iconFont,
-                ICON_ACTIVITY,
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            faceDc.drawText(
-                screenPaddingHor + iconSize + iconTextOffsetX,
-                colY + iconTextOffsetY,
-                infoFont,
-                currentActivity.format("%d"),
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            colY += infoLineHeight;
+            drawStatsItem(dc, y, ICON_ACTIVITY, currentActivity.format("%d"));
+            y += infoHeight;
         }
 
         if (currentHeartRate != null) {
-            faceDc.drawText(
-                screenPaddingHor,
-                colY,
-                iconFont,
-                ICON_HEART,
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            faceDc.drawText(
-                screenPaddingHor + iconSize + iconTextOffsetX,
-                colY + iconTextOffsetY,
-                infoFont,
-                currentHeartRate.format("%d"),
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-
-            // colY += infoLineHeight;
+            drawStatsItem(dc, y, ICON_HEART, currentHeartRate.format("%d"));
         }
     }
 
-    function startAnimation() {
-        System.println(">>> SmokeWatchView.startAnimation: begin, animationState = " + animationState);
-
-        if (animationState == :active) {
-            animationState = :leaving;
-            enterLayer = setupAnimationLayer(enterLayer, Rez.Drawables.Enter);
-
-            leaveLayer.setVisible(true);
-            leaveLayer.play({ :delegate => new SmokeWatchAnimationDelegate(self, false) });
-        } else if (animationState != :entering && animationState != :leaving) {
-            animationState = :entering;
-            leaveLayer = setupAnimationLayer(leaveLayer, Rez.Drawables.Leave);
-
-            enterLayer.setVisible(true);
-            enterLayer.play({ :delegate => new SmokeWatchAnimationDelegate(self, true) });
-        }
-
-        System.println(">>> SmokeWatchView.startAnimation: end, animationState = " + animationState);
-    }
-
-    function onAnimationEnd(isStateActive, isCanceled) {
-        System.println(">>> SmokeWatchView.onAnimationComplete: begin, isStateActive = "
-            + isStateActive
-            + ", isCanceled = "
-            + isCanceled
-            + ", ignoreAnimationCompleteCounter = "
-            + ignoreAnimationCompleteCounter
-            + ", animationState = "
-            + animationState);
-
-        if (ignoreAnimationCompleteCounter > 0 || (animationState != :entering && animationState != :leaving)) {
-            System.println(">>> SmokeWatchView.onAnimationComplete: end (ignoreAnimationCompleteCounter), isStateActive = "
-                + isStateActive
-                + ", isCanceled = "
-                + isCanceled
-                + ", ignoreAnimationCompleteCounter = "
-                + ignoreAnimationCompleteCounter
-                + ", animationState = "
-                + animationState);
-
-            return;
-        }
-
-        if (isStateActive) {
-            animationState = :active;
-            leaveLayer = setupAnimationLayer(leaveLayer, Rez.Drawables.Leave);
-
-            System.println(">>> SmokeWatchView.onAnimationComplete: end (isActive), isStateActive = "
-                + isStateActive
-                + ", isCanceled = "
-                + isCanceled
-                + ", ignoreAnimationCompleteCounter = "
-                + ignoreAnimationCompleteCounter
-                + ", animationState = "
-                + animationState);
-
-            return;
-        }
-
-        animationState = :empty;
-        enterLayer = setupAnimationLayer(enterLayer, Rez.Drawables.Enter);
-
-        if (isViewShown && isViewActive) {
-            startAnimation();
-        }
-
-        System.println(">>> SmokeWatchView.onAnimationComplete: end, isStateActive = "
-            + isStateActive
-            + ", isCanceled = "
-            + isCanceled
-            + ", ignoreAnimationCompleteCounter = "
-            + ignoreAnimationCompleteCounter
-            + ", animationState = "
-            + animationState);
-    }
-
-    function setupAnimationLayer(layer, rez) {
-        ++ignoreAnimationCompleteCounter;
-
-        if (layer != null) {
-            destroyAnimationLayer(layer);
-        }
-
-        layer = new WatchUi.AnimationLayer(rez, null);
-        layer.setVisible(false);
-        insertLayer(layer, 0);
-
-        --ignoreAnimationCompleteCounter;
-        return layer;
-    }
-
-    function destroyAnimationLayer(layer) {
-        ++ignoreAnimationCompleteCounter;
-        layer.stop();
-        removeLayer(layer);
-        --ignoreAnimationCompleteCounter;
-    }
-
-    function formatDayOfWeek(dayOfWeek) {
-        // English-only
-
-        switch (dayOfWeek) {
-            case Time.Gregorian.DAY_SUNDAY: return "Sun";
-            case Time.Gregorian.DAY_MONDAY: return "Mon";
-            case Time.Gregorian.DAY_TUESDAY: return "Tue";
-            case Time.Gregorian.DAY_WEDNESDAY: return "Wed";
-            case Time.Gregorian.DAY_THURSDAY: return "Thu";
-            case Time.Gregorian.DAY_FRIDAY: return "Fri";
-            case Time.Gregorian.DAY_SATURDAY: return "Sat";
-            default: return dayOfWeek.format("%d");
-        }
-    }
-
-    function formatMonth(month) {
-        // English-only
-
-        switch (month) {
-            case Time.Gregorian.MONTH_JANUARY: return "Jan";
-            case Time.Gregorian.MONTH_FEBRUARY: return "Feb";
-            case Time.Gregorian.MONTH_MARCH: return "Mar";
-            case Time.Gregorian.MONTH_APRIL: return "Apr";
-            case Time.Gregorian.MONTH_MAY: return "May";
-            case Time.Gregorian.MONTH_JUNE: return "Jun";
-            case Time.Gregorian.MONTH_JULY: return "Jul";
-            case Time.Gregorian.MONTH_AUGUST: return "Aug";
-            case Time.Gregorian.MONTH_SEPTEMBER: return "Sep";
-            case Time.Gregorian.MONTH_OCTOBER: return "Oct";
-            case Time.Gregorian.MONTH_NOVEMBER: return "Nov";
-            case Time.Gregorian.MONTH_DECEMBER: return "Dec";
-            default: return month.format("%d");
-        }
+    function drawStatsItem(dc, y, icon, text) {
+        dc.drawText(leftBlockX, y, iconFont, icon, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(leftBlockX + captionOffsetX, y + captionOffsetY, infoFont, text, Graphics.TEXT_JUSTIFY_LEFT);
     }
 }

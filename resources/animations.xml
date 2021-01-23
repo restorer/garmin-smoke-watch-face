@@ -1,4 +1,0 @@
-<resources>
-    <animation id="Enter" filename="animations/enter.mmm" />
-    <animation id="Leave" filename="animations/leave.mmm" />
-</resources>

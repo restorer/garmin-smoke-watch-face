@@ -1,3 +1,12 @@
 <drawables>
-    <bitmap id="Launcher" filename="drawables/launcher.png" />
+    <bitmap id="Launcher" filename="drawables/launcher_35.png" />
+    <bitmap id="Smoke01" filename="drawables/smoke_260x260_01.png" dithering="none" compress="true" automaticPalette="true" />
+    <bitmap id="Smoke02" filename="drawables/smoke_260x260_02.png" dithering="none" compress="true" automaticPalette="true" />
+    <bitmap id="Smoke03" filename="drawables/smoke_260x260_03.png" dithering="none" compress="true" automaticPalette="true" />
+    <bitmap id="Smoke04" filename="drawables/smoke_260x260_04.png" dithering="none" compress="true" automaticPalette="true" />
+    <bitmap id="Smoke05" filename="drawables/smoke_260x260_05.png" dithering="none" compress="true" automaticPalette="true" />
+    <bitmap id="Smoke06" filename="drawables/smoke_260x260_06.png" dithering="none" compress="true" automaticPalette="true" />
+    <bitmap id="Smoke07" filename="drawables/smoke_260x260_07.png" dithering="none" compress="true" automaticPalette="true" />
+    <bitmap id="Smoke08" filename="drawables/smoke_260x260_08.png" dithering="none" compress="true" automaticPalette="true" />
+    <bitmap id="Smoke09" filename="drawables/smoke_260x260_09.png" dithering="none" compress="true" automaticPalette="true" />
 </drawables>

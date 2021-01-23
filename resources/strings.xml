@@ -1,3 +1,7 @@
 <resources>
-    <string id="AppName">Smoke WatchFace</string>
+    <string id="AppName">Smoke Watch Face</string>
+
+    <string id="SettingsTitle">About</string>
+    <string id="SettingsVersion">v1.0</string>
+    <string id="SettingsLicense">Icons by Icons8</string>
 </resources>
