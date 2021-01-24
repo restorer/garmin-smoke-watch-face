@@ -1,7 +1,7 @@
 <resources>
     <string id="AppName">Smoke Watch Face</string>
 
-    <string id="SettingsTitle">@Strings.AppName</string>
+    <string id="SettingsTitle">Smoke Watch Face</string>
     <string id="SettingsVersion">v1.2</string>
     <string id="SettingsLicense">Icons by Icons8</string>
 </resources>
