@@ -19,11 +19,6 @@ class SmokeWatchView extends WatchUi.WatchFace {
     const ICON_ACTIVITY = "8";
     const ICON_DND = "9";
 
-    const SMOKE_ACTIVE_INDEX = 4;
-
-    var animationTimer = null;
-    var smokeBitmaps = [];
-
     var timeFont = null;
     var infoFont = null;
     var iconFont = null;
@@ -51,13 +46,11 @@ class SmokeWatchView extends WatchUi.WatchFace {
     var batteryOffsetX = 0;
     var batteryOffsetY = 0;
 
-    var backLayer = null;
+    var animationLayer = null;
     var faceLayer = null;
 
     var isViewShown = false;
-    var isJustShown = false;
 
-    var currentSmokeIndex = 0;
     var currentHours = "";
     var currentMinutes = "";
     var currentDate = "";
@@ -72,7 +65,6 @@ class SmokeWatchView extends WatchUi.WatchFace {
     var currentActivity = null;
     var currentHeartRate = null;
 
-    var lastSmokeIndex = -1;
     var lastHours = "";
     var lastMinutes = "";
     var lastDate = "";
@@ -89,20 +81,6 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
     function initialize() {
         WatchFace.initialize();
-        animationTimer = new Timer.Timer();
-
-        smokeBitmaps = [
-            Rez.Drawables.Smoke01,
-            Rez.Drawables.Smoke02,
-            Rez.Drawables.Smoke03,
-            Rez.Drawables.Smoke04,
-            Rez.Drawables.Smoke05,
-            Rez.Drawables.Smoke06,
-            Rez.Drawables.Smoke07,
-            Rez.Drawables.Smoke08,
-            Rez.Drawables.Smoke09,
-            null
-        ];
     }
 
     function onLayout(dc) {
@@ -151,12 +129,8 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
         // Layers
 
-        backLayer = new WatchUi.Layer({
-            :locX => 0,
-            :locY => 0,
-            :width => screenWidth,
-            :height => screenHeight
-        });
+        animationLayer = new WatchUi.AnimationLayer(Rez.Drawables.Smoke, null);
+        addLayer(animationLayer);
 
         faceLayer = new WatchUi.Layer({
             :locX => 0,
@@ -165,9 +139,7 @@ class SmokeWatchView extends WatchUi.WatchFace {
             :height => screenHeight
         });
 
-        addLayer(backLayer);
         addLayer(faceLayer);
-
         return true;
     }
 
@@ -175,21 +147,19 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
     function onShow() {
         isViewShown = true;
-        isJustShown = (currentSmokeIndex < SMOKE_ACTIVE_INDEX);
-        startAnimation();
+        animationLayer.play(null);
         return true;
     }
 
     function onUpdate(dc) {
         updateValues();
-        renderBack();
         renderFace();
         return true;
     }
 
     function onHide() {
         isViewShown = false;
-        stopAnimation();
+        animationLayer.stop();
         View.onHide();
     }
 
@@ -197,13 +167,13 @@ class SmokeWatchView extends WatchUi.WatchFace {
 
     function onExitSleep() {
         if (isViewShown) {
-            startAnimation();
+            animationLayer.play(null);
         }
     }
 
     function onEnterSleep() {
         if (isViewShown) {
-            stopAnimation();
+            animationLayer.stop();
         }
     }
 
@@ -250,58 +220,6 @@ class SmokeWatchView extends WatchUi.WatchFace {
         currentHeartRate = (heartRateSample != null && heartRateSample.heartRate != ActivityMonitor.INVALID_HR_SAMPLE)
             ? heartRateSample.heartRate
             : null;
-    }
-
-    // Background
-
-    function startAnimation() {
-        animationTimer.stop();
-        animationTimer.start(method(:renderAnimation), 100, true);
-    }
-
-    function stopAnimation() {
-        animationTimer.stop();
-        currentSmokeIndex = SMOKE_ACTIVE_INDEX;
-    }
-
-    function renderAnimation() {
-        currentSmokeIndex = (currentSmokeIndex + 1) % smokeBitmaps.size();
-
-        if (currentSmokeIndex == SMOKE_ACTIVE_INDEX) {
-            if (isJustShown) {
-                isJustShown = false;
-            } else {
-                animationTimer.stop();
-            }
-        }
-
-        requestUpdate();
-    }
-
-    function renderBack() {
-        if (backLayer == null) {
-            return;
-        }
-
-        var backDc = backLayer.getDc();
-
-        if (backDc == null || currentSmokeIndex == lastSmokeIndex) {
-            return;
-        }
-
-        lastSmokeIndex = currentSmokeIndex;
-        var bitmap = smokeBitmaps[currentSmokeIndex];
-
-        if (bitmap == null) {
-            backDc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
-            backDc.clear();
-        } else if (bitmap instanceof WatchUi.BitmapResource) {
-            backDc.drawBitmap(0, 0, bitmap);
-        } else {
-            bitmap = WatchUi.loadResource(bitmap);
-            smokeBitmaps[currentSmokeIndex] = bitmap;
-            backDc.drawBitmap(0, 0, bitmap);
-        }
     }
 
     // Face
