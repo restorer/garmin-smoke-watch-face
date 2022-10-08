@@ -5,7 +5,6 @@ using Toybox.Lang;
 using Toybox.Graphics;
 using Toybox.ActivityMonitor;
 using Toybox.Time;
-using Toybox.Timer;
 
 class SmokeWatchView extends WatchUi.WatchFace {
     const ICON_BATTERY = "0";
